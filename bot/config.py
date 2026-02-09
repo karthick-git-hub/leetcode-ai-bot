@@ -8,8 +8,8 @@ LEETCODE_USERNAME = os.getenv("LEETCODE_USERNAME", "")
 LEETCODE_PASSWORD = os.getenv("LEETCODE_PASSWORD", "")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 GH_TOKEN = os.getenv("GH_TOKEN", "")
-GITHUB_OWNER = os.getenv("GITHUB_OWNER", "")
-GITHUB_REPO = os.getenv("GITHUB_REPO", "")
+GH_OWNER = os.getenv("GH_OWNER", "")
+GH_REPO = os.getenv("GH_REPO", "")
 
 def require_env(name: str, value: str):
     if not value:
@@ -20,7 +20,7 @@ for name, value in [
     ("LEETCODE_PASSWORD", LEETCODE_PASSWORD),
     ("OPENAI_API_KEY", OPENAI_API_KEY),
     ("GH_TOKEN", GH_TOKEN),
-    ("GITHUB_OWNER", GITHUB_OWNER),
-    ("GITHUB_REPO", GITHUB_REPO),
+    ("GH_OWNER", GH_OWNER),
+    ("GH_REPO", GH_REPO),
 ]:
     require_env(name, value)

@@ -12,8 +12,8 @@ GH_API_BASE = "https://api.github.com"
 
 class GitHubClient:
     def __init__(self, owner: str | None = None, repo: str | None = None, token: str | None = None):
-        self.owner = owner or config.GITHUB_OWNER
-        self.repo = repo or config.GITHUB_REPO
+        self.owner = owner or config.GH_OWNER
+        self.repo = repo or config.GH_REPO
         self.session = requests.Session()
         token = token or config.GH_TOKEN
         self.session.headers.update(
