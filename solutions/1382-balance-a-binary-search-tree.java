@@ -1,50 +1,53 @@
-class Solution {
+public class Solution {
     public TreeNode balanceBST(TreeNode root) {
-        List<Integer> vals = new ArrayList<>();
-        inOrder(root, vals);
-        
-        int start = 0;
-        int end = vals.size() - 1;
-        
-        while (start <= end) {
-            int mid = start + (end - start) / 2;
-            TreeNode node = new TreeNode(vals.get(mid));
-            
-            node.left = balanceBST(rootLeft(vals, start, mid));
-            node.right = balanceBST(rootRight(vals, mid + 1, end));
-            
-            return node;
+        List<TreeNode> list = new ArrayList<>();
+        inorder(root, list);
+        int n = list.size();
+        TreeNode mid = list((n - 1) / 2);
+        return build(list.get(0), list.get(n - 1), mid);
+    }
+
+    private void inorder(TreeNode node, List<TreeNode> list) {
+        if (node != null) {
+            inorder(node.left, list);
+            list.add(node);
+            inorder(node.right, list);
         }
-        
-        return null;
     }
-    
-    private TreeNode rootLeft(List<Integer> vals, int start, int end) {
-        if (start > end)
-            return null;
-        
-        TreeNode node = new TreeNode(vals.get(start));
-        start++;
-        
-        return node;
+
+    private TreeNode build(TreeNode left, TreeNode right, TreeNode mid) {
+        if (left == null && right == null)
+            return mid;
+        if (left == null)
+            return build(null, mid, right);
+        if (right == null)
+            return build(left, null, mid);
+
+        TreeNode node = new TreeNode(0);
+        List<TreeNode> leftList = new ArrayList<>();
+        inorder(left, leftList);
+        List<TreeNode> rightList = new ArrayList<>();
+        inorder(right, rightList);
+
+        int i = 0;
+        int j = (leftList.size() - 1) / 2;
+
+        for (; ; ) {
+            if (i > rightList.size() - 1 || j < leftList.size())
+                return build(leftList.get(i), rightList.get(j), node);
+            if (leftList.get(i).val == rightList.get(j).val)
+                i++, j++;
+            else
+                return build(leftList.get(i), rightList.get(j), node);
+        }
     }
-    
-    private TreeNode rootRight(List<Integer> vals, int start, int end) {
-        if (end < start)
-            return null;
-        
-        TreeNode node = new TreeNode(vals.get(end));
-        end--;
-        
-        return node;
-    }
-    
-    private void inOrder(TreeNode node, List<Integer> vals) {
-        if (node == null)
-            return;
-        
-        inOrder(node.left, vals);
-        vals.add(node.val);
-        inOrder(node.right, vals);
+
+    static class TreeNode {
+        int val;
+        TreeNode left, right;
+
+        public TreeNode(int x) {
+            val = x;
+        }
     }
 }
