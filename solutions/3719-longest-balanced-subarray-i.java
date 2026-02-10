@@ -1,56 +1,37 @@
+import java.util.*;
+
 public class Solution {
     public int findLongestSubarray(int[] nums) {
-        int maxLen = 0;
-        int n = nums.length;
-        int lastEven = -1; // stores the index of the last seen even number in evens
-        int lastOdd = -1;   // stores the index of the last seen odd number in odds
+        if (nums == null || nums.length == 0) return 0;
 
-        for (int i = 0; i < n; i++) {
-            if (nums[i] % 2 == 0) {
-                nums[i] %= 2;
-                while (lastEven != -1 && evens[lastEven] != nums[i]) {
-                    lastEven = evens[lastEven];
-                }
-                lastEven = Math.max(lastEven, i);
+        int even = new HashSet<>();
+        int odd = new HashSet<>();
 
-                int j = i + 1;
-
-                if (lastOdd == -1 || evens[lastEven] == nums[j % n]) {
-                    while (lastOdd != -1 && odds[lastOdd] != nums[(j-1) % n]) {
-                        lastOdd = odds[lastOdd];
-                    }
-                    lastOdd = Math.max(lastOdd, i);
-                } else {
-                    maxLen = Math.max(maxLen, i - lastEven + 1);
-                    j++;
-                }
-
-                evens[i] = nums[i];
-            } else {
-                while (lastEven != -1 && odds[lastOdd] != nums[i]) {
-                    lastOdd = odds[lastOdd];
-                }
-                lastOdd = Math.max(lastOdd, i);
-
-                int j = i + 1;
-
-                if (lastEven == -1 || odds[lastOdd] == nums[j % n]) {
-                    while (lastEven != -1 && evens[lastEven] != nums[(j-1) % n]) {
-                        lastEven = evens[lastEven];
-                    }
-                    lastEven = Math.max(lastEven, i);
-                } else {
-                    maxLen = Math.max(maxLen, i - lastOdd + 1);
-                    j++;
-                }
-
-                odds[i] = nums[i];
-            }
-        }
+        int maxLen = 1;
+        int left = 0, right = 0;
         
+        while (right < nums.length) {
+            if (nums[right] % 2 != 0) {
+                odd.add(nums[right]);
+            } else {
+                even.add(nums[right]);
+            }
+            
+            if ((even.size() > odd.size()) ^ (odd.size() > even.size())) {
+                left++;
+                
+                if (nums[left-1] % 2 == 0) {
+                    even.remove(nums[left-1]);
+                } else {
+                    odd.remove(nums[left-1]);
+                }
+            } else {
+                maxLen = Math.max(maxLen, right - left + 1);
+            }
+
+            right++;
+        }
+
         return maxLen;
     }
-
-    private final int[] evens = new int[1500];
-    private final int[] odds   = new int[1500];
 }
