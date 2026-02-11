@@ -10,10 +10,12 @@ logger = logging.getLogger(__name__)
 
 GH_API_BASE = "https://api.github.com"
 
+
 class GitHubClient:
     def __init__(self, owner: str | None = None, repo: str | None = None, token: str | None = None):
         self.owner = owner or config.GH_OWNER
         self.repo = repo or config.GH_REPO
+
         self.session = requests.Session()
         token = token or config.GH_TOKEN
         self.session.headers.update(
@@ -23,6 +25,7 @@ class GitHubClient:
                 "X-GitHub-Api-Version": "2022-11-28",
             }
         )
+
         logger.info("GitHubClient initialized for %s/%s", self.owner, self.repo)
 
     def file_exists(self, path: str, branch: str = "main") -> bool:
@@ -30,10 +33,12 @@ class GitHubClient:
         logger.info("Checking if file exists: %s (branch=%s)", path, branch)
         resp = self.session.get(url, params={"ref": branch})
         logger.info("GET %s -> %s", url, resp.status_code)
+
         if resp.status_code == 200:
             return True
         if resp.status_code == 404:
             return False
+
         logger.error("Unexpected status from GitHub for file_exists: %s %s", resp.status_code, resp.text)
         resp.raise_for_status()
 
@@ -54,7 +59,11 @@ class GitHubClient:
             sha = None
             logger.info("File does not exist yet; will create new file")
         else:
-            logger.error("Unexpected status from GitHub pre-check: %s %s", get_resp.status_code, get_resp.text)
+            logger.error(
+                "Unexpected status from GitHub pre-check: %s %s",
+                get_resp.status_code,
+                get_resp.text,
+            )
             get_resp.raise_for_status()
 
         payload: dict[str, str] = {
@@ -74,6 +83,10 @@ class GitHubClient:
                 body = put_resp.json()
             except Exception:
                 body = put_resp.text
-            logger.error("GitHub error on PUT: %s", json.dumps(body, indent=2) if isinstance(body, dict) else body)
-        put_resp.raise_for_status()
+            logger.error(
+                "GitHub error on PUT: %s",
+                json.dumps(body, indent=2) if isinstance(body, dict) else body,
+            )
+            put_resp.raise_for_status()
+
         logger.info("File %s successfully created/updated on GitHub", path)

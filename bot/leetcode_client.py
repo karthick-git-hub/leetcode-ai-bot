@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 LEETCODE_BASE = "https://leetcode.com"
 
+
 class LeetCodeClient:
     def __init__(self, headless: bool = True):
         logger.info("Initializing Chrome WebDriver (headless=%s)", headless)
@@ -22,13 +23,13 @@ class LeetCodeClient:
         options.add_argument("--window-size=1920,1080")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
+
         self.driver = webdriver.Chrome(options=options)
         self.wait = WebDriverWait(self.driver, 20)
 
     def login(self):
         """
         Use an existing LeetCode session cookie instead of username/password.
-
         You must put LEETCODE_SESSION_COOKIE in your .env with the value
         copied from your browser (DevTools → Application → Cookies).
         """
@@ -40,11 +41,12 @@ class LeetCodeClient:
             raise RuntimeError("Missing LEETCODE_SESSION_COOKIE in .env")
 
         cookie = {
-            "name": "LEETCODE_SESSION",   # adjust if your cookie has a different name
+            "name": "LEETCODE_SESSION",  # adjust if your cookie has a different name
             "value": session_value,
             "domain": ".leetcode.com",
             "path": "/",
         }
+
         logger.info("Adding session cookie: name=%s, domain=%s", cookie["name"], cookie["domain"])
         self.driver.add_cookie(cookie)
 
@@ -63,6 +65,7 @@ class LeetCodeClient:
         url = f"{LEETCODE_BASE}/problems/{slug}/"
         logger.info("Opening problem URL: %s", url)
         self.driver.get(url)
+
         logger.info("Waiting for problem description to load")
         self.wait.until(
             EC.presence_of_element_located(
@@ -76,17 +79,19 @@ class LeetCodeClient:
         desc_el = self.driver.find_element(
             By.CSS_SELECTOR, "div[data-track-load='description_content']"
         )
+
         text = desc_el.text
         logger.info("Problem description retrieved (length=%d)", len(text))
         return text
 
     def debug_print_language_menu(self):
         logger.info("Debug: listing all language items in open menu")
-        # Find any open menu / listbox near the editor
+
         items = self.driver.find_elements(
             By.XPATH,
             "//*[(@role='menu' or @role='listbox' or @role='option') and contains(., 'C++') or contains(., 'Java')]",
         )
+
         logger.info("Found %d candidate menu containers/items", len(items))
         for idx, el in enumerate(items):
             try:
@@ -101,7 +106,7 @@ class LeetCodeClient:
         self.wait.until(EC.presence_of_element_located((By.ID, "editor")))
         logger.info("Editor container #editor is present")
 
-        # 1) Click the current language button (C++, etc.) to open the menu
+        # Click the current language button to open the menu
         lang_button = self.wait.until(
             EC.element_to_be_clickable(
                 (By.XPATH, "//div[@id='editor']//button[@type='button' and @aria-haspopup='dialog']")
@@ -111,7 +116,7 @@ class LeetCodeClient:
         lang_button.click()
         logger.info("Language dropdown opened")
 
-        # 2) Click the Java option in the menu – based on your actual HTML
+        # Click the Java option in the menu
         java_option = self.wait.until(
             EC.element_to_be_clickable(
                 (
@@ -131,7 +136,6 @@ class LeetCodeClient:
                 (By.CSS_SELECTOR, "#editor textarea.inputarea")
             )
         )
-
         logger.info("Focusing editor textarea")
         textarea.click()
         sleep(0.5)
@@ -140,11 +144,22 @@ class LeetCodeClient:
         textarea.send_keys(Keys.CONTROL, "a")
         textarea.send_keys(Keys.DELETE)
 
-        lines = code.splitlines()
-        logger.info("Typing new code into editor (lines=%d)", len(lines))
-        for line in lines:
-            textarea.send_keys(line)
-            textarea.send_keys(Keys.ENTER)
+        logger.info("Setting editor value via JavaScript")
+        self.driver.execute_script(
+            """
+            var value = arguments[0];
+            if (window.monaco && monaco.editor && monaco.editor.getModels().length > 0) {
+                monaco.editor.getModels()[0].setValue(value);
+            }
+            """,
+            code,
+        )
+
+        editor_value = self.driver.execute_script(
+            "return window.monaco && monaco.editor.getModels()[0].getValue();"
+        )
+        logger.info("Editor value length=%d", len(editor_value))
+        logger.info("Editor value snippet:\n%s", editor_value[:500])
 
     def submit_solution(self) -> bool:
         logger.info("Locating Submit button")
@@ -164,13 +179,19 @@ class LeetCodeClient:
             EC.presence_of_element_located(
                 (
                     By.XPATH,
-                    "//*[contains(., 'Accepted') or contains(., 'Wrong Answer') or contains(., 'Runtime Error')]",
+                    "//*[contains(., 'Accepted') "
+                    "or contains(., 'Wrong Answer') "
+                    "or contains(., 'Runtime Error') "
+                    "or contains(., 'Time Limit Exceeded') "
+                    "or contains(., 'Compile Error')]",
                 )
             )
         )
-        text = result_el.text
+        text = result_el.text.strip()
         logger.info("Submission result text: %s", text)
-        return "Accepted" in text
+
+        # Only true Accepted is success; everything else (including runtime error) is failure
+        return text.startswith("Accepted")
 
     def submit_java_solution(self, code: str) -> bool:
         logger.info("Submitting Java solution")
