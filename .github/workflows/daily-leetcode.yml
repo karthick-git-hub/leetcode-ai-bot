@@ -29,7 +29,9 @@ jobs:
           LEETCODE_PASSWORD: ${{ secrets.LEETCODE_PASSWORD }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          GITHUB_OWNER: ${{ secrets.GITHUB_OWNER }}
-          GITHUB_REPO: ${{ secrets.GITHUB_REPO }}
+          GH_OWNER: ${{ secrets.GH_OWNER }}
+          GH_REPO: ${{ secrets.GH_REPO }}
+          LEETCODE_SESSION_COOKIE: ${{ secrets.LEETCODE_SESSION_COOKIE }}
+          OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
         run: |
           python -m bot.main
