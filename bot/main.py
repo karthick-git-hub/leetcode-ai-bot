@@ -30,6 +30,9 @@ def build_solution_path(problem_id: str, slug: str) -> str:
 
 
 def main():
+    if os.getenv("CI_NO_SELENIUM", "false").lower() == "true":
+        logger.info("CI_NO_SELENIUM=true – skipping LeetCode Selenium run in CI.")
+        return
     setup_logging()
     logger.info("Starting daily LeetCode bot")
 

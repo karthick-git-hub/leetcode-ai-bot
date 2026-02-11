@@ -34,5 +34,7 @@ jobs:
           LEETCODE_SESSION_COOKIE: ${{ secrets.LEETCODE_SESSION_COOKIE }}
           OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
           HEADLESS: "true"
+          # other envs if needed for non-Selenium parts
+          CI_NO_SELENIUM: "true"
         run: |
           python -m bot.main
