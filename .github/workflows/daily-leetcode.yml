@@ -33,5 +33,6 @@ jobs:
           GH_REPO: ${{ secrets.GH_REPO }}
           LEETCODE_SESSION_COOKIE: ${{ secrets.LEETCODE_SESSION_COOKIE }}
           OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
+          HEADLESS: "true"
         run: |
           python -m bot.main

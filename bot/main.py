@@ -1,4 +1,6 @@
 import logging
+import os
+
 from pathlib import Path
 
 from bot.github_client import GitHubClient
@@ -42,7 +44,8 @@ def main():
     submission_base_dir.mkdir(parents=True, exist_ok=True)
 
     gh = GitHubClient()
-    lc = LeetCodeClient(headless=False)
+    headless_flag = os.getenv("HEADLESS", "false").lower() == "true"
+    lc = LeetCodeClient(headless=headless_flag)
 
     accepted_code: str | None = None
 
