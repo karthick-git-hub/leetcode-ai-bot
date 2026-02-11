@@ -11,6 +11,9 @@ logger = logging.getLogger(__name__)
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 SOLUTIONS_DIR = ROOT_DIR / "solutions"
+SUBMISSIONS_DIR = ROOT_DIR / "solutions" / "submissions"
+
+MAX_ATTEMPTS = 5
 
 
 def get_today_problem() -> tuple[str, str]:
@@ -20,7 +23,7 @@ def get_today_problem() -> tuple[str, str]:
     return problem_id, slug
 
 
-def build_file_path(problem_id: str, slug: str) -> str:
+def build_solution_path(problem_id: str, slug: str) -> str:
     return f"solutions/{problem_id.zfill(4)}-{slug}.java"
 
 
@@ -29,14 +32,19 @@ def main():
     logger.info("Starting daily LeetCode bot")
 
     problem_id, slug = get_today_problem()
-    path = build_file_path(problem_id, slug)
-    logger.info("Resolved file path for solution: %s", path)
+    solution_repo_path = build_solution_path(problem_id, slug)
+    logger.info("Resolved solution file path: %s", solution_repo_path)
 
-    local_path = ROOT_DIR / path
-    local_path.parent.mkdir(parents=True, exist_ok=True)
+    solution_local_path = ROOT_DIR / solution_repo_path
+    solution_local_path.parent.mkdir(parents=True, exist_ok=True)
+
+    submission_base_dir = SUBMISSIONS_DIR / f"{problem_id}-{slug}"
+    submission_base_dir.mkdir(parents=True, exist_ok=True)
 
     gh = GitHubClient()
     lc = LeetCodeClient(headless=False)
+
+    accepted_code: str | None = None
 
     try:
         logger.info("Logging into LeetCode")
@@ -45,37 +53,57 @@ def main():
         logger.info("Opening problem page for slug: %s", slug)
         lc.open_problem(slug)
 
+        logger.info("Selecting Java language")
+        lc.select_java_language()
+
+        logger.info("Reading default method info from editor")
+        default_stub, default_signature = lc.get_default_method_info()
+        logger.info("Default method signature: %s", default_signature or "<none>")
+
         logger.info("Scraping problem description text")
         problem_text = lc.get_problem_text()
         logger.info("Problem description length: %d characters", len(problem_text))
 
-        logger.info("Calling AI solver to generate Java code")
-        generated_java = generate_java_solution(problem_text)
-        logger.info("Generated Java code length: %d characters", len(generated_java))
+        for attempt in range(1, MAX_ATTEMPTS + 1):
+            logger.info("Attempt %d/%d: generating Java code", attempt, MAX_ATTEMPTS)
+            java_code = generate_java_solution(
+                problem_text,
+                signature_hint=default_signature,
+                stub_hint=default_stub,
+            )
+            logger.info("Attempt %d: generated Java code length=%d", attempt, len(java_code))
 
-        # 1) Write to solutions file
-        logger.info("Writing generated solution to local file: %s", local_path)
-        local_path.write_text(generated_java, encoding="utf-8")
+            attempt_path = submission_base_dir / f"attempt_{attempt}.java"
+            logger.info("Writing attempt %d to %s", attempt, attempt_path)
+            attempt_path.write_text(java_code, encoding="utf-8")
 
-        # 2) Read back from file – this is the single source of truth
-        logger.info("Reading solution back from local file: %s", local_path)
-        java_code = local_path.read_text(encoding="utf-8")
-        logger.info("Read-back Java code length: %d characters", len(java_code))
+            logger.info("Submitting attempt %d to LeetCode", attempt)
+            accepted = lc.submit_java_solution(java_code)
+            logger.info("Attempt %d Accepted flag: %s", attempt, accepted)
 
-        # 3) Submit read-back code to LeetCode
-        logger.info("Submitting Java solution to LeetCode {} ", java_code)
-        accepted = lc.submit_java_solution(java_code)
-        logger.info("Submission accepted: %s", accepted)
+            if accepted:
+                logger.info("Attempt %d was Accepted; using this code as final solution", attempt)
+                accepted_code = java_code
+                break
+            else:
+                logger.warning("Attempt %d was not Accepted; trying next attempt", attempt)
 
-        if not accepted:
-            logger.warning("Solution was not accepted, skipping GitHub commit.")
+        if accepted_code is None:
+            logger.error(
+                "All %d attempts failed (no Accepted submission). "
+                "Logged all attempts under %s. Skipping GitHub commit.",
+                MAX_ATTEMPTS,
+                submission_base_dir,
+            )
             return
 
-        # 4) Commit same read-back code to GitHub
+        logger.info("Writing accepted solution to local solutions file: %s", solution_local_path)
+        solution_local_path.write_text(accepted_code, encoding="utf-8")
+
         commit_message = f"Add solution for {problem_id}. {slug}"
-        logger.info("Committing solution to GitHub with message: %s", commit_message)
-        gh.create_or_update_file(path, java_code, commit_message)
-        logger.info("Solution committed successfully.")
+        logger.info("Committing accepted solution to GitHub with message: %s", commit_message)
+        gh.create_or_update_file(solution_repo_path, accepted_code, commit_message)
+        logger.info("Accepted solution committed successfully.")
 
     finally:
         logger.info("Closing browser")

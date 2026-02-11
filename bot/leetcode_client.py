@@ -8,6 +8,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,6 @@ class LeetCodeClient:
         options.add_argument("--window-size=1920,1080")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
-
         self.driver = webdriver.Chrome(options=options)
         self.wait = WebDriverWait(self.driver, 20)
 
@@ -54,12 +54,18 @@ class LeetCodeClient:
         self.driver.get(LEETCODE_BASE)
 
         logger.info("Waiting for element that indicates logged-in state")
-        self.wait.until(
-            EC.presence_of_element_located(
-                (By.CSS_SELECTOR, "a[href*='/problemset/']")
+        try:
+            self.wait.until(
+                EC.presence_of_element_located(
+                    (By.CSS_SELECTOR, "a[href*='/problemset/']")
+                )
             )
-        )
-        logger.info("Session-based login successful")
+            logger.info("Session-based login successful")
+        except TimeoutException:
+            logger.error("Did not detect logged-in state; check LEETCODE_SESSION_COOKIE and page layout")
+            html = self.driver.page_source
+            logger.error("Page source snippet:\n%s", html[:2000])
+            raise
 
     def open_problem(self, slug: str):
         url = f"{LEETCODE_BASE}/problems/{slug}/"
@@ -79,19 +85,16 @@ class LeetCodeClient:
         desc_el = self.driver.find_element(
             By.CSS_SELECTOR, "div[data-track-load='description_content']"
         )
-
         text = desc_el.text
         logger.info("Problem description retrieved (length=%d)", len(text))
         return text
 
     def debug_print_language_menu(self):
         logger.info("Debug: listing all language items in open menu")
-
         items = self.driver.find_elements(
             By.XPATH,
             "//*[(@role='menu' or @role='listbox' or @role='option') and contains(., 'C++') or contains(., 'Java')]",
         )
-
         logger.info("Found %d candidate menu containers/items", len(items))
         for idx, el in enumerate(items):
             try:
@@ -102,7 +105,6 @@ class LeetCodeClient:
 
     def select_java_language(self):
         logger.info("Selecting Java language")
-
         self.wait.until(EC.presence_of_element_located((By.ID, "editor")))
         logger.info("Editor container #editor is present")
 
@@ -116,18 +118,86 @@ class LeetCodeClient:
         lang_button.click()
         logger.info("Language dropdown opened")
 
-        # Click the Java option in the menu
-        java_option = self.wait.until(
-            EC.element_to_be_clickable(
-                (
-                    By.XPATH,
-                    "//div[contains(@class, 'text-text-primary') and normalize-space(text())='Java']",
+        # Locate and click Java option with retry to avoid stale element
+        java_xpath = (
+            "//div[contains(@class, 'text-text-primary') and normalize-space(text())='Java']"
+        )
+
+        for attempt in range(3):
+            try:
+                logger.info("Locating Java option in language menu (attempt %d)", attempt + 1)
+                java_option = self.wait.until(
+                    EC.element_to_be_clickable((By.XPATH, java_xpath))
                 )
+                logger.info("Java option in language menu found, clicking it")
+                java_option.click()
+                logger.info("Java language selected from menu")
+                return
+            except Exception as e:
+                logger.warning(
+                    "Failed to click Java option (attempt %d): %s", attempt + 1, e
+                )
+                # small pause before retry
+                sleep(0.5)
+
+        raise RuntimeError("Could not select Java language after multiple attempts")
+
+    def get_default_method_info(self) -> tuple[str, str]:
+        """
+        Returns (full_stub_code, method_signature_line) from the Java editor.
+        Assumes Java is already selected and default code is present.
+        """
+        logger.info("Reading default method info from editor")
+
+        # Wait for editor to exist
+        self.wait.until(
+            EC.presence_of_element_located(
+                (By.CSS_SELECTOR, "#editor textarea.inputarea")
             )
         )
-        logger.info("Java option in language menu found, clicking it")
-        java_option.click()
-        logger.info("Java language selected from menu")
+
+        # Give Monaco a moment to switch languages and load Java stub
+        sleep(1.0)
+
+        full_code = self.driver.execute_script(
+            """
+    if (window.monaco && monaco.editor && monaco.editor.getModels().length > 0) {
+      var model = monaco.editor.getModels()[0];
+      if (model && typeof model.getValue === 'function') {
+        return model.getValue();
+      }
+    }
+    return "";
+    """
+        ) or ""
+
+        logger.info("Default editor code length=%d", len(full_code))
+        logger.info("Default editor full stub:\n%s", full_code)
+
+        method_signature = ""
+
+        logger.info("Dumping stub lines for inspection:")
+        for idx, line in enumerate(full_code.splitlines(), start=1):
+            logger.info("LINE %03d: %r", idx, line)
+
+        # Very light detection: any non-class, non-comment line with parentheses
+        for line in full_code.splitlines():
+            tmp = line.lstrip()
+            if (
+                    "(" in tmp
+                    and ")" in tmp
+                    and "class " not in tmp
+                    and not tmp.startswith("//")
+                    and not tmp.startswith("/*")
+            ):
+                method_signature = line  # keep original line unchanged
+                logger.info("Detected default method signature: %r", method_signature)
+                break
+
+        if not method_signature:
+            logger.warning("Could not detect default method signature; method_signature is empty")
+
+        return full_code, method_signature
 
     def set_editor_code(self, code: str):
         logger.info("Locating Monaco editor textarea inside #editor")
@@ -147,16 +217,27 @@ class LeetCodeClient:
         logger.info("Setting editor value via JavaScript")
         self.driver.execute_script(
             """
-            var value = arguments[0];
-            if (window.monaco && monaco.editor && monaco.editor.getModels().length > 0) {
-                monaco.editor.getModels()[0].setValue(value);
-            }
-            """,
+var value = arguments[0];
+if (window.monaco && monaco.editor && monaco.editor.getModels().length > 0) {
+  var model = monaco.editor.getModels()[0];
+  if (model && typeof model.setValue === 'function') {
+    model.setValue(value);
+  }
+}
+""",
             code,
         )
 
         editor_value = self.driver.execute_script(
-            "return window.monaco && monaco.editor.getModels()[0].getValue();"
+            """
+if (window.monaco && monaco.editor && monaco.editor.getModels().length > 0) {
+  var model = monaco.editor.getModels()[0];
+  if (model && typeof model.getValue === 'function') {
+    return model.getValue();
+  }
+}
+return "";
+"""
         )
         logger.info("Editor value length=%d", len(editor_value))
         logger.info("Editor value snippet:\n%s", editor_value[:500])
@@ -190,8 +271,10 @@ class LeetCodeClient:
         text = result_el.text.strip()
         logger.info("Submission result text: %s", text)
 
-        # Only true Accepted is success; everything else (including runtime error) is failure
-        return text.startswith("Accepted")
+        # Look for 'Accepted' anywhere in the result text
+        is_accepted = "Accepted" in text
+        logger.info("Parsed accepted flag from result text: %s", is_accepted)
+        return is_accepted
 
     def submit_java_solution(self, code: str) -> bool:
         logger.info("Submitting Java solution")

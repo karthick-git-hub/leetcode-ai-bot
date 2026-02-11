@@ -20,6 +20,7 @@ query questionOfToday {
 }
 """
 
+
 def fetch_daily_challenge() -> tuple[str, str]:
     """
     Returns (frontendQuestionId, titleSlug) for today's LeetCode Daily Challenge.
@@ -32,8 +33,9 @@ def fetch_daily_challenge() -> tuple[str, str]:
     )
     resp.raise_for_status()
     data = resp.json()
+
     node = data["data"]["activeDailyCodingChallengeQuestion"]
     q = node["question"]
     problem_id = q["frontendQuestionId"]  # e.g. "1"
-    slug = q["titleSlug"]                 # e.g. "two-sum"
+    slug = q["titleSlug"]  # e.g. "two-sum"
     return problem_id, slug

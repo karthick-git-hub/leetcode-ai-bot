@@ -1,7 +1,6 @@
 from dotenv import load_dotenv
 import os
 
-# Load .env for local runs; in CI, env vars come from GitHub Secrets.
 load_dotenv()
 
 LEETCODE_USERNAME = os.getenv("LEETCODE_USERNAME", "")
@@ -11,9 +10,14 @@ GH_TOKEN = os.getenv("GH_TOKEN", "")
 GH_OWNER = os.getenv("GH_OWNER", "")
 GH_REPO = os.getenv("GH_REPO", "")
 
-def require_env(name: str, value: str):
+# New: default OpenAI model
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5-mini")
+
+
+def require_env(name: str, value: str) -> None:
     if not value:
         raise RuntimeError(f"Missing environment variable: {name}")
+
 
 for name, value in [
     ("LEETCODE_USERNAME", LEETCODE_USERNAME),

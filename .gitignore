@@ -2,11 +2,10 @@ __pycache__/
 *.pyc
 .venv/
 venv/
-
 .env
-
 .vscode/
 .idea/
-
+/submissions/
+/submissions/*
 chromedriver
 page_source_lang_menu.html
