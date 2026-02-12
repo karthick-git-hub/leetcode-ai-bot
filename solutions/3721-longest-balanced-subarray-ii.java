@@ -1,99 +1,113 @@
 import java.util.*;
 
 class Solution {
-    int n;
-    int[] minv, maxv, lazy;
-    int N;
-    void build(int node, int l, int r) {
-        minv[node] = 0;
-        maxv[node] = 0;
-        lazy[node] = 0;
-        if (l == r) return;
-        int mid = (l + r) >>> 1;
-        build(node<<1, l, mid);
-        build(node<<1|1, mid+1, r);
-    }
-    void apply(int node, int val) {
-        minv[node] += val;
-        maxv[node] += val;
-        lazy[node] += val;
-    }
-    void push(int node) {
-        int v = lazy[node];
-        if (v != 0) {
-            apply(node<<1, v);
-            apply(node<<1|1, v);
-            lazy[node] = 0;
-        }
-    }
-    void rangeAdd(int node, int l, int r, int ql, int qr, int val) {
-        if (ql > r || qr < l) return;
-        if (ql <= l && r <= qr) {
-            apply(node, val);
-            return;
-        }
-        push(node);
-        int mid = (l + r) >>> 1;
-        rangeAdd(node<<1, l, mid, ql, qr, val);
-        rangeAdd(node<<1|1, mid+1, r, ql, qr, val);
-        minv[node] = Math.min(minv[node<<1], minv[node<<1|1]);
-        maxv[node] = Math.max(maxv[node<<1], maxv[node<<1|1]);
-    }
-    int findFirstEqual(int node, int l, int r, int ql, int qr, int target) {
-        if (ql > r || qr < l) return -1;
-        if (ql <= l && r <= qr) {
-            if (minv[node] > target || maxv[node] < target) return -1;
-            if (l == r) return l;
-        }
-        push(node);
-        int mid = (l + r) >>> 1;
-        int res = findFirstEqual(node<<1, l, mid, ql, qr, target);
-        if (res != -1) return res;
-        return findFirstEqual(node<<1|1, mid+1, r, ql, qr, target);
-    }
-
     public int longestBalanced(int[] nums) {
-        n = nums.length;
-        if (n == 0) return 0;
-        N = n;
-        minv = new int[4*N];
-        maxv = new int[4*N];
-        lazy = new int[4*N];
-        build(1, 0, N-1);
-        int maxLen = 0;
-        int maxVal = 100000;
-        int[] lastPos = new int[maxVal + 1];
-        Arrays.fill(lastPos, -1);
-        int totalEven = 0, totalOdd = 0;
-        for (int r = 0; r < n; r++) {
-            int v = nums[r];
-            int prev = lastPos[v];
-            int s = (v % 2 == 0) ? 1 : -1;
-            if (prev == -1) {
-                // new distinct
-                if (s == 1) totalEven++; else totalOdd++;
-            } else {
-                // remove old last occurrence sign at prev
-                rangeAdd(1, 0, N-1, prev, N-1, -s);
+        int n = nums.length;
+        // compute first and last positions for each value
+        int maxVal = 100000; // as per constraints
+        int sizeMap = maxVal + 1;
+        int[] first = new int[sizeMap];
+        int[] last = new int[sizeMap];
+        Arrays.fill(first, -1);
+        Arrays.fill(last, -1);
+        for (int i = 0; i < n; ++i) {
+            int v = nums[i];
+            if (first[v] == -1) first[v] = i;
+            last[v] = i;
+        }
+
+        // Segment tree with range add and ability to find leftmost index in a query range [ql,qr] whose value == 0
+        class SegTree {
+            int N;
+            int[] min;
+            int[] max;
+            int[] lazy;
+            SegTree(int n) {
+                N = n;
+                int size = 4 * n + 5;
+                min = new int[size];
+                max = new int[size];
+                lazy = new int[size];
+                // initially all zeros -> min=0 max=0 lazy=0
             }
-            // add sign at r
-            rangeAdd(1, 0, N-1, r, N-1, s);
-            lastPos[v] = r;
-            int Tdiff = totalEven - totalOdd;
-            int bestL = -1;
-            if (Tdiff == 0) {
-                bestL = 0;
+            void apply(int idx, int val) {
+                min[idx] += val;
+                max[idx] += val;
+                lazy[idx] += val;
             }
-            int pos = findFirstEqual(1, 0, N-1, 0, r, Tdiff);
-            if (pos != -1) {
-                int lCandidate = pos + 1;
-                if (bestL == -1 || lCandidate < bestL) bestL = lCandidate;
+            void push(int idx) {
+                int l = idx << 1, r = l | 1;
+                int v = lazy[idx];
+                if (v != 0) {
+                    apply(l, v);
+                    apply(r, v);
+                    lazy[idx] = 0;
+                }
             }
-            if (bestL != -1) {
-                int len = r - bestL + 1;
-                if (len > maxLen) maxLen = len;
+            void pull(int idx) {
+                int l = idx << 1, r = l | 1;
+                min[idx] = Math.min(min[l], min[r]);
+                max[idx] = Math.max(max[l], max[r]);
+            }
+            void rangeAdd(int ql, int qr, int val) {
+                if (ql > qr) return;
+                rangeAdd(1, 0, N-1, ql, qr, val);
+            }
+            void rangeAdd(int idx, int l, int r, int ql, int qr, int val) {
+                if (ql <= l && r <= qr) {
+                    apply(idx, val);
+                    return;
+                }
+                int mid = (l + r) >> 1;
+                push(idx);
+                if (ql <= mid) rangeAdd(idx<<1, l, mid, ql, qr, val);
+                if (qr > mid) rangeAdd(idx<<1|1, mid+1, r, ql, qr, val);
+                pull(idx);
+            }
+            // find leftmost index in [ql,qr] with value == 0, or -1 if none
+            int findFirstZero(int ql, int qr) {
+                if (ql > qr) return -1;
+                return findFirstZero(1, 0, N-1, ql, qr);
+            }
+            int findFirstZero(int idx, int l, int r, int ql, int qr) {
+                if (r < ql || l > qr) return -1;
+                if (min[idx] > 0 || max[idx] < 0) return -1; // no zero possible in this node
+                if (l == r) {
+                    // value must be zero here
+                    return l;
+                }
+                push(idx);
+                int mid = (l + r) >> 1;
+                int res = -1;
+                if (ql <= mid) {
+                    res = findFirstZero(idx<<1, l, mid, ql, qr);
+                    if (res != -1) return res;
+                }
+                if (qr > mid) {
+                    res = findFirstZero(idx<<1|1, mid+1, r, ql, qr);
+                }
+                return res;
             }
         }
-        return maxLen;
+
+        if (n == 0) return 0;
+        SegTree st = new SegTree(n);
+        int ans = 0;
+        for (int r = 0; r < n; ++r) {
+            int v = nums[r];
+            int f = first[v];
+            if (f == r) {
+                int lpos = last[v];
+                int w = (v % 2 == 0) ? 1 : -1;
+                // add w to range [0, lpos]
+                st.rangeAdd(0, lpos, w);
+            }
+            int L = st.findFirstZero(0, r);
+            if (L != -1) {
+                int len = r - L + 1;
+                if (len > ans) ans = len;
+            }
+        }
+        return ans;
     }
 }
