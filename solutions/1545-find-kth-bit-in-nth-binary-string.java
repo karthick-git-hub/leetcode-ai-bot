@@ -4,8 +4,8 @@ class Solution {
         int mid = 1 << (n - 1); // 2^(n-1)
         if (k == mid) return '1';
         if (k < mid) return findKthBit(n - 1, k);
-        int j = (1 << n) - k; // mapped position in S_{n-1}
-        char c = findKthBit(n - 1, j);
+        int mirrored = (1 << n) - k; // 2^n - k
+        char c = findKthBit(n - 1, mirrored);
         return c == '0' ? '1' : '0';
     }
 }
