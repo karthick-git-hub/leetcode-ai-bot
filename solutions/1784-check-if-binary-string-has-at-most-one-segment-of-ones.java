@@ -1,14 +1,15 @@
 class Solution {
     public boolean checkOnesSegment(String s) {
-        boolean seenOne = false;
-        boolean seenZeroAfterOnes = false;
+        boolean inOne = false;
+        boolean seenZeroAfterOne = false;
         for (int i = 0; i < s.length(); i++) {
             char c = s.charAt(i);
             if (c == '1') {
-                if (seenZeroAfterOnes) return false;
-                seenOne = true;
+                if (seenZeroAfterOne) return false;
+                inOne = true;
             } else { // c == '0'
-                if (seenOne) seenZeroAfterOnes = true;
+                if (inOne) seenZeroAfterOne = true;
+                inOne = false;
             }
         }
         return true;
