@@ -2,60 +2,66 @@ import java.util.*;
 
 class Solution {
     public class Robot {
+
         private int width;
         private int height;
         private int perim;
-        private int pos; // steps from (0,0) along the perimeter, in [0, perim-1]
-        private boolean moved; // whether any step call with num>0 has occurred
+        private int cur; // current index on the perimeter path
+        private int[][] positions; // positions along the perimeter in order
+        private String[] dirs; // direction faced at each position
 
         public Robot(int width, int height) {
             this.width = width;
             this.height = height;
-            // perimeter length (number of distinct edge cells along the border)
             this.perim = 2 * (width + height) - 4;
-            this.pos = 0;
-            this.moved = false;
+            this.positions = new int[this.perim][2];
+            this.dirs = new String[this.perim];
+            this.cur = 0;
+
+            int idx = 0;
+            // East along bottom row from (0,0) to (width-1,0)
+            for (int x = 0; x <= width - 1; x++) {
+                positions[idx][0] = x;
+                positions[idx][1] = 0;
+                dirs[idx] = "East";
+                idx++;
+            }
+            // North along right column from (width-1,1) to (width-1,height-1)
+            for (int y = 1; y <= height - 1; y++) {
+                positions[idx][0] = width - 1;
+                positions[idx][1] = y;
+                dirs[idx] = "North";
+                idx++;
+            }
+            // West along top row from (width-2,height-1) down to (0,height-1)
+            for (int x = width - 2; x >= 0; x--) {
+                positions[idx][0] = x;
+                positions[idx][1] = height - 1;
+                dirs[idx] = "West";
+                idx++;
+            }
+            // South along left column from (0,height-2) down to (0,1)
+            for (int y = height - 2; y >= 1; y--) {
+                positions[idx][0] = 0;
+                positions[idx][1] = y;
+                dirs[idx] = "South";
+                idx++;
+            }
+            // idx should equal perim
         }
 
         public void step(int num) {
-            if (perim <= 0) return;
+            if (perim == 0) return;
             num %= perim;
-            if (num > 0) moved = true;
-            pos = (pos + num) % perim;
+            cur = (cur + num) % perim;
         }
 
         public int[] getPos() {
-            int s1 = width - 1;
-            int s2 = s1 + (height - 1);
-            int s3 = s2 + s1;
-            int x, y;
-            if (pos <= s1) { // bottom edge, going East
-                x = pos;
-                y = 0;
-            } else if (pos <= s2) { // right edge, going North
-                x = width - 1;
-                y = pos - s1;
-            } else if (pos <= s3) { // top edge, going West
-                x = (width - 1) - (pos - s2);
-                y = height - 1;
-            } else { // left edge, going South
-                x = 0;
-                y = (height - 1) - (pos - s3);
-            }
-            return new int[]{x, y};
+            return new int[] { positions[cur][0], positions[cur][1] };
         }
 
         public String getDir() {
-            if (pos == 0) {
-                return moved ? "South" : "East";
-            }
-            int s1 = width - 1;
-            int s2 = s1 + (height - 1);
-            int s3 = s2 + s1;
-            if (pos <= s1) return "East";
-            if (pos <= s2) return "North";
-            if (pos <= s3) return "West";
-            return "South";
+            return dirs[cur];
         }
     }
 }
