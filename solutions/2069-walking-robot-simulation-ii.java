@@ -1,67 +1,65 @@
 import java.util.*;
 
 class Solution {
-    public class Robot {
 
-        private int width;
-        private int height;
-        private int perim;
-        private int cur; // current index on the perimeter path
-        private int[][] positions; // positions along the perimeter in order
-        private String[] dirs; // direction faced at each position
+    public class Robot {
+        int width;
+        int height;
+        List<int[]> path = new ArrayList<>();
+        int perimLen;
+        int idx = 0; // current index on path
+        long stepsTaken = 0;
 
         public Robot(int width, int height) {
             this.width = width;
             this.height = height;
-            this.perim = 2 * (width + height) - 4;
-            this.positions = new int[this.perim][2];
-            this.dirs = new String[this.perim];
-            this.cur = 0;
-
-            int idx = 0;
-            // East along bottom row from (0,0) to (width-1,0)
+            // build perimeter path in CCW order starting from (0,0) moving East
+            // bottom edge (0,0) to (w-1,0)
             for (int x = 0; x <= width - 1; x++) {
-                positions[idx][0] = x;
-                positions[idx][1] = 0;
-                dirs[idx] = "East";
-                idx++;
+                path.add(new int[]{x, 0});
             }
-            // North along right column from (width-1,1) to (width-1,height-1)
+            // right edge (w-1,1) to (w-1,h-1)
             for (int y = 1; y <= height - 1; y++) {
-                positions[idx][0] = width - 1;
-                positions[idx][1] = y;
-                dirs[idx] = "North";
-                idx++;
+                path.add(new int[]{width - 1, y});
             }
-            // West along top row from (width-2,height-1) down to (0,height-1)
+            // top edge (w-2,h-1) to (0,h-1) if height>1
             for (int x = width - 2; x >= 0; x--) {
-                positions[idx][0] = x;
-                positions[idx][1] = height - 1;
-                dirs[idx] = "West";
-                idx++;
+                path.add(new int[]{x, height - 1});
             }
-            // South along left column from (0,height-2) down to (0,1)
+            // left edge (0,h-2) to (0,1) if width>1
             for (int y = height - 2; y >= 1; y--) {
-                positions[idx][0] = 0;
-                positions[idx][1] = y;
-                dirs[idx] = "South";
-                idx++;
+                path.add(new int[]{0, y});
             }
-            // idx should equal perim
+            perimLen = path.size();
+            // per constraints width,height >= 2 so perimLen >= 4
+            idx = 0;
+            stepsTaken = 0;
         }
 
         public void step(int num) {
-            if (perim == 0) return;
-            num %= perim;
-            cur = (cur + num) % perim;
+            if (perimLen == 0) return;
+            stepsTaken += num;
+            idx = (int)(stepsTaken % perimLen);
         }
 
         public int[] getPos() {
-            return new int[] { positions[cur][0], positions[cur][1] };
+            if (perimLen == 0) return new int[]{0, 0};
+            int[] p = path.get(idx);
+            return new int[]{p[0], p[1]};
         }
 
         public String getDir() {
-            return dirs[cur];
+            if (perimLen == 0) return "East";
+            if (stepsTaken == 0) {
+                return "East";
+            }
+            int prev = (idx - 1 + perimLen) % perimLen;
+            int[] a = path.get(prev);
+            int[] b = path.get(idx);
+            if (b[0] > a[0]) return "East";
+            if (b[0] < a[0]) return "West";
+            if (b[1] > a[1]) return "North";
+            return "South";
         }
     }
 }
