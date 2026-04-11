@@ -2,25 +2,19 @@ import java.util.*;
 
 class Solution {
     public int minimumDistance(int[] nums) {
-        Map<Integer, List<Integer>> posMap = new HashMap<>();
+        Map<Integer, List<Integer>> pos = new HashMap<>();
         for (int i = 0; i < nums.length; i++) {
-            int v = nums[i];
-            List<Integer> list = posMap.get(v);
-            if (list == null) {
-                list = new ArrayList<>();
-                posMap.put(v, list);
-            }
-            list.add(i);
+            pos.computeIfAbsent(nums[i], k -> new ArrayList<>()).add(i);
         }
-        int best = Integer.MAX_VALUE;
-        for (List<Integer> lst : posMap.values()) {
+        int bestSpan = Integer.MAX_VALUE;
+        for (List<Integer> lst : pos.values()) {
             if (lst.size() < 3) continue;
-            for (int i = 0; i + 2 < lst.size(); i++) {
-                int span = lst.get(i + 2) - lst.get(i);
-                int dist = span * 2;
-                if (dist < best) best = dist;
+            for (int i = 2; i < lst.size(); i++) {
+                int span = lst.get(i) - lst.get(i - 2);
+                if (span < bestSpan) bestSpan = span;
             }
         }
-        return best == Integer.MAX_VALUE ? -1 : best;
+        if (bestSpan == Integer.MAX_VALUE) return -1;
+        return 2 * bestSpan;
     }
 }
